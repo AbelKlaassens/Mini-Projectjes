@@ -131,7 +131,7 @@
         padding: 10px 12px;
         border-radius: 8px;
         border: none;
-        font-size: 16px;
+        font-size: 16px;   /* voorkomt auto-zoom op iOS */
         outline: none;
     }
 
@@ -212,10 +212,10 @@ const rounds = [
         type: "words",
         time: 20,
         words: [
-            { key: "ZEVEN", label: "Zeven", aliases: ["7","SEVEN"], hints: [] },
-            { key: "ALBERTUS", label: "Albertus", aliases: ["MAGNUS"], hints: [] },
-            { key: "MOOI", label: "Mooi", aliases: [], hints: [] },
-            { key: "CLUB", label: "Club", aliases: [], hints: [] }
+            { key: "ZEVEN",     label: "Zeven",     aliases: ["7","SEVEN"],  hints: [] },
+            { key: "ALBERTUS",  label: "Albertus",  aliases: ["MAGNUS"],     hints: [] },
+            { key: "MOOI",      label: "Mooi",      aliases: [],             hints: [] },
+            { key: "CLUB",      label: "Club",      aliases: [],             hints: [] }
         ]
     }
 ];
@@ -227,24 +227,22 @@ let solved = new Set();
 let bottles = 11; // START MET 11 FLESSEN
 let timer, time;
 
-const aliasMap = {}; // extra global aliases
-
 function normalize(str) {
     return str.toUpperCase().replace(/\s+/g,"").replace(/['’]/g,"");
 }
 
-const tiles = document.getElementById("tiles");
-const roundLabel = document.getElementById("round-label");
-const questionLabel = document.getElementById("round-question");
-const timerEl = document.getElementById("timer");
-const bottlesEl = document.getElementById("bottles");
-const resultEl = document.getElementById("result");
-const answersEl = document.getElementById("answers");
-const input = document.getElementById("guess");
+const tiles       = document.getElementById("tiles");
+const roundLabel  = document.getElementById("round-label");
+const questionLbl = document.getElementById("round-question");
+const timerEl     = document.getElementById("timer");
+const bottlesEl   = document.getElementById("bottles");
+const resultEl    = document.getElementById("result");
+const answersEl   = document.getElementById("answers");
+const input       = document.getElementById("guess");
 
 let currentIndex = 0;
 let currentRound = null;
-let solutionMap = {};
+let solutionMap  = {};
 
 function updateBottles() {
     bottlesEl.textContent = "Flessen: " + bottles;
@@ -296,7 +294,7 @@ function startRound(i) {
     currentIndex = i;
     currentRound = rounds[i];
     roundLabel.textContent = `${currentRound.name} van ${rounds.length}`;
-    questionLabel.textContent = currentRound.question || "";
+    questionLbl.textContent = currentRound.question || "";
     resultEl.innerHTML = "";
     answersEl.innerHTML = "";
     input.disabled = false;
@@ -304,23 +302,23 @@ function startRound(i) {
     input.focus();
     buildTiles();
     startTimer();
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
 }
 
 function endRound() {
     input.disabled = true;
     answersEl.innerHTML = "";
 
-    // show correct answers
     if (currentRound.type === "multiplechoice") {
         const correct = currentRound.answers.find(a => a.correct);
-        const span = document.createElement("span");
-        span.className = "answer " + (solved.has("MCQ_"+currentIndex) ? "solved" : "missed");
-        span.textContent = correct.label;
-
         const head = document.createElement("div");
         head.id = "answers-title";
         head.textContent = "Juiste antwoord:";
         answersEl.appendChild(head);
+
+        const span = document.createElement("span");
+        span.className = "answer " + (solved.has("MCQ_"+currentIndex) ? "solved" : "missed");
+        span.textContent = correct.label;
         answersEl.appendChild(span);
 
         resultEl.innerHTML =
@@ -333,15 +331,15 @@ function endRound() {
 
         currentRound.words.forEach(w => {
             const span = document.createElement("span");
-            span.className =
-                "answer " + (solved.has(w.key) ? "solved" : "missed");
+            span.className = "answer " + (solved.has(w.key) ? "solved" : "missed");
             span.textContent = w.label;
             answersEl.appendChild(span);
         });
 
-        let missed = currentRound.words.filter(w => !solved.has(w.key)).length;
+        const missed = currentRound.words.filter(w => !solved.has(w.key)).length;
         resultEl.innerHTML =
-            `Ronde afgelopen!<br>Niet geraden: <strong>${missed}</strong>.<br>Overgebleven flessen: <strong>${bottles}</strong><br><br>`;
+            `Ronde afgelopen!<br>Niet geraden: <strong>${missed}</strong>.<br>` +
+            `Overgebleven flessen: <strong>${bottles}</strong><br><br>`;
     }
 
     if (currentIndex < rounds.length - 1) {
@@ -355,8 +353,18 @@ function endRound() {
     }
 }
 
+// -----------------------------
+// INPUT EVENTS
+// -----------------------------
 input.addEventListener("keyup", e => {
     if (e.key === "Enter") checkGuess();
+});
+
+// ✅ TERUG: scroll het input-veld mooi in beeld bij focus
+input.addEventListener("focus", () => {
+    setTimeout(() => {
+        input.scrollIntoView({ block: "center", behavior: "smooth" });
+    }, 300);
 });
 
 // -----------------------------
@@ -364,12 +372,11 @@ input.addEventListener("keyup", e => {
 // -----------------------------
 function checkGuess() {
     if (input.disabled) return;
-    const raw = input.value.trim();
+    const raw  = input.value.trim();
     const norm = normalize(raw);
-
     input.value = "";
 
-    // --- RONDE 3: MEERKEUZE ---
+    // --- RONDE 3: MEERKEUZE (1 KANS!) ---
     if (currentRound.type === "multiplechoice") {
         let choice = null;
 
@@ -379,16 +386,13 @@ function checkGuess() {
         else if (norm === "D" || norm === "D.") choice = "D";
         else if (norm === "59935" || norm === "59.935") choice = "A";
 
-        // GEEN tweede poging → meteen ronde eindigen
-        clearInterval(timer);
+        clearInterval(timer); // altijd direct stoppen
 
         if (choice === "A") {
-            // goed → fles eraf
             solved.add("MCQ_"+currentIndex);
             if (bottles > 0) bottles--;
             updateBottles();
 
-            // highlight correct tile
             document.querySelectorAll("[data-choice]").forEach(el => {
                 if (el.dataset.choice === "A") el.classList.add("correct");
             });
@@ -398,33 +402,37 @@ function checkGuess() {
         return;
     }
 
-    // --- normale rondes ---
+    // --- NORMALE / OPEN-DEUR RONDES ---
     let found = null;
 
-    // key match
+    // key-match
     if (solutionMap[norm]) found = solutionMap[norm];
 
-    // alias match
+    // alias-match
     if (!found) {
         for (const w of currentRound.words) {
             for (const a of (w.aliases || [])) {
-                if (normalize(a) === norm) found = w;
+                if (normalize(a) === norm) {
+                    found = w;
+                    break;
+                }
             }
+            if (found) break;
         }
     }
 
     if (found && !solved.has(found.key)) {
         solved.add(found.key);
 
-        // mark tiles
-        document.querySelectorAll(`[data-solution="${found.key}"]`)
+        document
+            .querySelectorAll(`[data-solution="${found.key}"]`)
             .forEach(t => t.classList.add("correct"));
 
-        // fles eraf
-        if (bottles > 0) bottles--;
-        updateBottles();
+        if (bottles > 0) {
+            bottles--;
+            updateBottles();
+        }
 
-        // als alle woorden gevonden → stop direct
         if (currentRound.words.every(w => solved.has(w.key))) {
             clearInterval(timer);
             endRound();
@@ -433,6 +441,9 @@ function checkGuess() {
     }
 }
 
+// -----------------------------
+// START
+// -----------------------------
 updateBottles();
 startRound(0);
 </script>
