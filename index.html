@@ -34,8 +34,14 @@
 
     #timer {
         font-size: 26px;
-        margin-bottom: 10px;
+        margin-bottom: 4px;
         font-weight: bold;
+        text-align: center;
+    }
+
+    #bottles {
+        font-size: 18px;
+        margin-bottom: 10px;
         text-align: center;
     }
 
@@ -122,6 +128,7 @@
 <div id="top">
     <h1>De Slimste Emil – Puzzel</h1>
     <div id="timer">40</div>
+    <div id="bottles">Flessen: 10</div>
     <div class="puzzel-container" id="tiles"></div>
     <div id="result"></div>
 </div>
@@ -135,25 +142,43 @@
 
 <script>
 // 1️⃣ JOUW WOORDEN EN HINTS
+// We normaliseren straks de input, zodat 'HBOers' en 'HBO’ers' allebei werken.
 const solutions = {
-    "KROKET": ["Snackbar", "Gefrituurd", "Ragout", "Hollands"],
-    "POOL": ["Koud", "Aardbol", "IJs", "Noord"],
-    "GITAAR": ["Snaren", "Rock", "Instrument", "Solo"]
+    "ELLA": ["Mascotte", "Roel", "Yves", "Dizkartes"],
+    "BILAL": ["Marrakech", "Geit", "Moslim", "Fully Gucci"],
+    "ALFAVILLA": ["Albanie", "Wit", "Bad", "Neighbours"],
+    "HBOERS": ["Ties", "Tim", "Derek", "Joost"]
 };
+
+// kleine helper: normaliseer tekst (hoofdletters, spaties weg, apostrof weg)
+function normalize(str) {
+    return str
+        .toUpperCase()
+        .replace(/\s+/g, "")     // spaties weg
+        .replace(/['’]/g, "");   // apostrof varianten weg
+}
 
 // Tiles maken
 const container = document.getElementById("tiles");
-for (const [solution, hints] of Object.entries(solutions)) {
+for (const [solutionKey, hints] of Object.entries(solutions)) {
     hints.forEach(h => {
         const tile = document.createElement("div");
         tile.className = "tile";
-        tile.dataset.solution = solution;
+        tile.dataset.solution = solutionKey;
         tile.innerText = h;
         container.appendChild(tile);
     });
 }
 
 let solved = new Set();
+
+// Flessen
+let bottles = 10;
+const bottlesElement = document.getElementById("bottles");
+function updateBottles() {
+    bottlesElement.textContent = `Flessen: ${bottles}`;
+}
+updateBottles();
 
 // Timer
 let time = 40;
@@ -185,12 +210,21 @@ input.addEventListener("focus", () => {
 });
 
 function checkGuess() {
-    const guess = input.value.trim().toUpperCase();
+    const rawGuess = input.value.trim();
+    const guess = normalize(rawGuess);
 
     if (solutions[guess] && !solved.has(guess)) {
         solved.add(guess);
+
+        // tegels groen maken
         document.querySelectorAll(`[data-solution='${guess}']`)
             .forEach(el => el.classList.add("correct"));
+
+        // fles eraf (minimaal 0)
+        if (bottles > 0) {
+            bottles--;
+            updateBottles();
+        }
     }
 
     input.value = "";
@@ -202,11 +236,13 @@ function endGame() {
     const total = Object.keys(solutions).length;
     const notSolved = total - solved.size;
     document.getElementById("result").innerHTML =
-        `Tijd is op!<br>Je mist: <strong>${notSolved}</strong> woord(en).`;
+        `Tijd is op!<br>Je mist: <strong>${notSolved}</strong> woord(en).<br>` +
+        `Overgebleven flessen: <strong>${bottles}</strong>.`;
     clearInterval(timer);
 }
 </script>
 
 </body>
 </html>
+
 
