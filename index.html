@@ -19,6 +19,41 @@
         color: white;
     }
 
+    /* STARTSCHERM */
+    #start-screen {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 20px;
+    }
+
+    #start-inner {
+        max-width: 400px;
+    }
+
+    #start-inner p {
+        font-size: 20px;
+        margin-bottom: 16px;
+    }
+
+    #start-inner button {
+        padding: 10px 16px;
+        border-radius: 8px;
+        border: none;
+        background: #ffffff;
+        color: #b62318;
+        font-size: 18px;
+        font-weight: 600;
+        cursor: pointer;
+    }
+
+    /* SPEL */
+    #game {
+        display: none;
+    }
+
     #top {
         max-width: 650px;
         margin: 0 auto;
@@ -83,6 +118,20 @@
         font-weight: 600;
     }
 
+    /* Speciaal voor ronde 4 (open deur) */
+    .tile.open-door {
+        text-decoration: line-through;
+        opacity: 0.7;
+    }
+
+    .tile.open-door.correct {
+        text-decoration: none;
+        opacity: 1;
+        background: #63c76a;
+        color: #000;
+        font-weight: 600;
+    }
+
     #result {
         margin-top: 8px;
         font-size: 18px;
@@ -131,7 +180,7 @@
         padding: 10px 12px;
         border-radius: 8px;
         border: none;
-        font-size: 16px;   /* voorkomt auto-zoom op iOS */
+        font-size: 16px;
         outline: none;
     }
 
@@ -143,31 +192,52 @@
         color: #b62318;
         font-size: 16px;
         font-weight: 600;
+        cursor: pointer;
     }
 
     #next-round-btn {
         margin-top: 10px;
     }
+
+    @media (max-width: 480px) {
+        h1 { font-size: 20px; }
+        .tile {
+            font-size: 14px;
+            padding: 10px 2px;
+            min-height: 36px;
+        }
+    }
 </style>
 </head>
 <body>
 
-<div id="top">
-    <h1>De Slimste Emil – Puzzel</h1>
-    <div id="round-label"></div>
-    <div id="round-question"></div>
-    <div id="timer"></div>
-    <div id="bottles"></div>
-    <div class="puzzel-container" id="tiles"></div>
-    <div id="result"></div>
-    <div id="answers"></div>
+<!-- STARTSCHERM -->
+<div id="start-screen">
+  <div id="start-inner">
+    <p>Succes Emil! Ik hoop dat je veel moet drinken.</p>
+    <button id="start-btn">Start spel</button>
+  </div>
 </div>
 
-<div id="input-wrapper">
-    <div id="input-area">
-        <input id="guess" placeholder="Typ jouw antwoord..." autocomplete="off">
-        <button onclick="checkGuess()">Gok!</button>
-    </div>
+<!-- SPEL -->
+<div id="game">
+  <div id="top">
+      <h1>De Slimste Emil – Puzzel</h1>
+      <div id="round-label"></div>
+      <div id="round-question"></div>
+      <div id="timer"></div>
+      <div id="bottles"></div>
+      <div class="puzzel-container" id="tiles"></div>
+      <div id="result"></div>
+      <div id="answers"></div>
+  </div>
+
+  <div id="input-wrapper">
+      <div id="input-area">
+          <input id="guess" placeholder="Typ jouw antwoord..." autocomplete="off">
+          <button onclick="checkGuess()">Gok!</button>
+      </div>
+  </div>
 </div>
 
 <script>
@@ -280,13 +350,24 @@ function buildTiles() {
 
     currentRound.words.forEach(w => {
         solutionMap[w.key] = w;
-        w.hints.forEach(h => {
+
+        // normale rondes met hints
+        if (w.hints && w.hints.length > 0) {
+            w.hints.forEach(h => {
+                const t = document.createElement("div");
+                t.className = "tile";
+                t.dataset.solution = w.key;
+                t.textContent = h;
+                tiles.appendChild(t);
+            });
+        } else {
+            // OPEN DEUR: toon het woord zelf, doorgestreept
             const t = document.createElement("div");
-            t.className = "tile";
+            t.className = "tile open-door";
             t.dataset.solution = w.key;
-            t.textContent = h;
+            t.textContent = w.label;
             tiles.appendChild(t);
-        });
+        }
     });
 }
 
@@ -349,7 +430,11 @@ function endRound() {
         btn.onclick = () => startRound(currentIndex + 1);
         resultEl.appendChild(btn);
     } else {
-        resultEl.innerHTML += "Spel afgelopen!";
+        resultEl.innerHTML += "Spel afgelopen!<br><br>";
+        const restart = document.createElement("button");
+        restart.textContent = "Opnieuw spelen";
+        restart.onclick = () => window.location.reload();
+        resultEl.appendChild(restart);
     }
 }
 
@@ -360,7 +445,7 @@ input.addEventListener("keyup", e => {
     if (e.key === "Enter") checkGuess();
 });
 
-// ✅ TERUG: scroll het input-veld mooi in beeld bij focus
+// scroll hack voor mobiel (die eerder ok voelde)
 input.addEventListener("focus", () => {
     setTimeout(() => {
         input.scrollIntoView({ block: "center", behavior: "smooth" });
@@ -376,7 +461,7 @@ function checkGuess() {
     const norm = normalize(raw);
     input.value = "";
 
-    // --- RONDE 3: MEERKEUZE (1 KANS!) ---
+    // --- RONDE 3: MEERKEUZE (1 KANS) ---
     if (currentRound.type === "multiplechoice") {
         let choice = null;
 
@@ -405,10 +490,8 @@ function checkGuess() {
     // --- NORMALE / OPEN-DEUR RONDES ---
     let found = null;
 
-    // key-match
     if (solutionMap[norm]) found = solutionMap[norm];
 
-    // alias-match
     if (!found) {
         for (const w of currentRound.words) {
             for (const a of (w.aliases || [])) {
@@ -442,10 +525,14 @@ function checkGuess() {
 }
 
 // -----------------------------
-// START
+// STARTSCHERM LOGICA
 // -----------------------------
-updateBottles();
-startRound(0);
+document.getElementById("start-btn").addEventListener("click", () => {
+    document.getElementById("start-screen").style.display = "none";
+    document.getElementById("game").style.display = "block";
+    updateBottles();
+    startRound(0);
+});
 </script>
 
 </body>
