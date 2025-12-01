@@ -121,14 +121,16 @@
     /* Speciaal voor ronde 4 (open deur) */
     .tile.open-door {
         text-decoration: line-through;
-        opacity: 0.7;
+        text-decoration-thickness: 2px;
+        text-decoration-color: #ffffff;
+        color: transparent;              /* tekst zelf onzichtbaar */
     }
 
     .tile.open-door.correct {
         text-decoration: none;
-        opacity: 1;
+        color: #000;                      /* tekst zichtbaar */
         background: #63c76a;
-        color: #000;
+        opacity: 1;
         font-weight: 600;
     }
 
@@ -351,8 +353,8 @@ function buildTiles() {
     currentRound.words.forEach(w => {
         solutionMap[w.key] = w;
 
-        // normale rondes met hints
         if (w.hints && w.hints.length > 0) {
+            // normale puzzelrondes met hints
             w.hints.forEach(h => {
                 const t = document.createElement("div");
                 t.className = "tile";
@@ -361,7 +363,7 @@ function buildTiles() {
                 tiles.appendChild(t);
             });
         } else {
-            // OPEN DEUR: toon het woord zelf, doorgestreept
+            // OPEN DEUR: toon woord zelf, doorgestreept & onleesbaar
             const t = document.createElement("div");
             t.className = "tile open-door";
             t.dataset.solution = w.key;
@@ -430,7 +432,11 @@ function endRound() {
         btn.onclick = () => startRound(currentIndex + 1);
         resultEl.appendChild(btn);
     } else {
-        resultEl.innerHTML += "Spel afgelopen!<br><br>";
+        // laatste ronde: eindtekst + opnieuw-knop
+        resultEl.innerHTML +=
+            `<span style="display:block;margin-top:10px;font-size:26px;font-weight:bold;">
+               Succes met het drinken van de ${bottles} bier!
+             </span><br><br>`;
         const restart = document.createElement("button");
         restart.textContent = "Opnieuw spelen";
         restart.onclick = () => window.location.reload();
@@ -445,7 +451,7 @@ input.addEventListener("keyup", e => {
     if (e.key === "Enter") checkGuess();
 });
 
-// scroll hack voor mobiel (die eerder ok voelde)
+// scroll hack voor mobiel
 input.addEventListener("focus", () => {
     setTimeout(() => {
         input.scrollIntoView({ block: "center", behavior: "smooth" });
@@ -537,6 +543,7 @@ document.getElementById("start-btn").addEventListener("click", () => {
 
 </body>
 </html>
+
 
 
 
