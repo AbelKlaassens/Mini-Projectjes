@@ -34,7 +34,13 @@
     #round-label {
         font-size: 16px;
         text-align: center;
-        margin-bottom: 4px;
+        margin-bottom: 2px;
+    }
+
+    #round-question {
+        font-size: 15px;
+        text-align: center;
+        margin-bottom: 6px;
     }
 
     #timer {
@@ -88,11 +94,6 @@
         text-align: center;
     }
 
-    #answers-title {
-        font-size: 16px;
-        margin-bottom: 4px;
-    }
-
     .answer {
         display: inline-block;
         margin: 3px 6px;
@@ -112,7 +113,6 @@
         color: #fff;
     }
 
-    /* Onderste deel: input + knop */
     #input-wrapper {
         background: #b62318;
         border-top: 1px solid rgba(255,255,255,0.25);
@@ -131,7 +131,7 @@
         padding: 10px 12px;
         border-radius: 8px;
         border: none;
-        font-size: 16px;   /* voorkomt auto-zoom op iOS */
+        font-size: 16px;
         outline: none;
     }
 
@@ -143,22 +143,10 @@
         color: #b62318;
         font-size: 16px;
         font-weight: 600;
-        cursor: pointer;
     }
-
-    button:active { transform: scale(0.98); }
 
     #next-round-btn {
         margin-top: 10px;
-    }
-
-    @media (max-width: 480px) {
-        h1 { font-size: 20px; }
-        .tile {
-            font-size: 14px;
-            padding: 10px 2px;
-            min-height: 36px;
-        }
     }
 </style>
 </head>
@@ -166,9 +154,10 @@
 
 <div id="top">
     <h1>De Slimste Emil – Puzzel</h1>
-    <div id="round-label">Ronde 1 van 2</div>
-    <div id="timer">40</div>
-    <div id="bottles">Flessen: 10</div>
+    <div id="round-label"></div>
+    <div id="round-question"></div>
+    <div id="timer"></div>
+    <div id="bottles"></div>
     <div class="puzzel-container" id="tiles"></div>
     <div id="result"></div>
     <div id="answers"></div>
@@ -183,134 +172,92 @@
 
 <script>
 // -----------------------------
-// DATA: 2 rondes, 3 woorden elk
+// RONDES
 // -----------------------------
 const rounds = [
     {
         name: "Ronde 1",
+        question: "",
+        type: "words",
         words: [
-            {
-                key: "ELLA",
-                label: "Ella",
-                hints: ["Mascotte", "Roel", "Yves", "dizkartes"]
-            },
-            {
-                key: "BILAL",
-                label: "Bilal",
-                hints: ["Marrakech", "geit", "Fully Gucci", "Moslim"]
-            },
-            {
-                key: "ALFAVILLA",
-                label: "Alfa villa",
-                hints: ["Albanie", "Wit", "bad", "buren"]
-            }
+            { key: "ELLA", label: "Ella", aliases: [], hints: ["Mascotte","Roel","Yves","dizkartes"] },
+            { key: "BILAL", label: "Bilal", aliases: [], hints: ["Marrakech","geit","Fully Gucci","Moslim"] },
+            { key: "ALFAVILLA", label: "Alfa villa", aliases: [], hints: ["Albanie","Wit","bad","buren"] }
         ]
     },
     {
         name: "Ronde 2",
+        question: "",
+        type: "words",
         words: [
-            {
-                key: "HBOERS",
-                label: "HBO\u2019ers",
-                hints: ["Ties", "Tim", "Derek", "Joost"]
-            },
-            {
-                key: "VO",
-                label: "Vo",
-                hints: ["1815", "27", "Proost", "olifant"]
-            },
-            {
-                key: "NOORDERPLANTSOEN",
-                label: "Noorderplantsoen",
-                hints: ["Gras", "Park", "Melkinrichting", "Zondag"]
-            }
+            { key: "HBOERS", label: "HBO’ers", aliases: ["HBO"], hints: ["Ties","Tim","Derek","Joost"] },
+            { key: "VO", label: "Vo", aliases: [], hints: ["1815","27","Proost","olifant"] },
+            { key: "NOORDERPLANTSOEN", label: "Noorderplantsoen", aliases: [], hints: ["Gras","Park","Melkinrichting","Zondag"] }
+        ]
+    },
+    {
+        name: "Ronde 3 – Meerkeuze",
+        question: "Hoeveel heeft Loesoe uitgegeven op WBW in totaal?",
+        type: "multiplechoice",
+        answers: [
+            { key: "A", label: "A. €59.935", correct: true },
+            { key: "B", label: "B. €62.858", correct: false },
+            { key: "C", label: "C. €72.012", correct: false },
+            { key: "D", label: "D. €49.873", correct: false }
+        ]
+    },
+    {
+        name: "Ronde 4 – Open deur",
+        question: "Wat weet je over Loesoe? (4 antwoorden)",
+        type: "words",
+        time: 20,
+        words: [
+            { key: "ZEVEN", label: "Zeven", aliases: ["7","SEVEN"], hints: [] },
+            { key: "ALBERTUS", label: "Albertus", aliases: ["MAGNUS"], hints: [] },
+            { key: "MOOI", label: "Mooi", aliases: [], hints: [] },
+            { key: "CLUB", label: "Club", aliases: [], hints: [] }
         ]
     }
 ];
 
-// normaliseer input: hoofdletters, spaties weg, apostrof-varianten weg
+// -----------------------------
+// GLOBALS
+// -----------------------------
+let solved = new Set();
+let bottles = 11; // START MET 11 FLESSEN
+let timer, time;
+
+const aliasMap = {}; // extra global aliases
+
 function normalize(str) {
-    return str
-        .toUpperCase()
-        .replace(/\s+/g, "")
-        .replace(/['’]/g, "");
+    return str.toUpperCase().replace(/\s+/g,"").replace(/['’]/g,"");
 }
 
-const tilesContainer = document.getElementById("tiles");
-const timerElement = document.getElementById("timer");
-const bottlesElement = document.getElementById("bottles");
-const resultElement = document.getElementById("result");
-const answersElement = document.getElementById("answers");
-const roundLabelElement = document.getElementById("round-label");
+const tiles = document.getElementById("tiles");
+const roundLabel = document.getElementById("round-label");
+const questionLabel = document.getElementById("round-question");
+const timerEl = document.getElementById("timer");
+const bottlesEl = document.getElementById("bottles");
+const resultEl = document.getElementById("result");
+const answersEl = document.getElementById("answers");
 const input = document.getElementById("guess");
 
-let currentRoundIndex = 0;
+let currentIndex = 0;
 let currentRound = null;
-let currentSolutionMap = {};   // key -> word object (label, hints)
-let solvedGlobal = new Set();  // alle goed geraden woorden over beide rondes
-let bottles = 10;
-let time = 40;
-let timer = null;
+let solutionMap = {};
 
-// -----------------------------
-// UI helpers
-// -----------------------------
 function updateBottles() {
-    bottlesElement.textContent = `Flessen: ${bottles}`;
+    bottlesEl.textContent = "Flessen: " + bottles;
 }
 
-function updateRoundLabel() {
-    roundLabelElement.textContent = `${currentRound.name} van ${rounds.length}`;
-}
-
-function buildTiles() {
-    tilesContainer.innerHTML = "";
-    currentSolutionMap = {};
-
-    currentRound.words.forEach(word => {
-        currentSolutionMap[word.key] = word;
-        word.hints.forEach(h => {
-            const tile = document.createElement("div");
-            tile.className = "tile";
-            tile.dataset.solution = word.key;
-            tile.innerText = h;
-            tilesContainer.appendChild(tile);
-        });
-    });
-}
-
-function markTilesForKey(key) {
-    document
-        .querySelectorAll(`[data-solution='${key}']`)
-        .forEach(el => el.classList.add("correct"));
-}
-
-function showAnswersForCurrentRound() {
-    answersElement.innerHTML = "";
-    const title = document.createElement("div");
-    title.id = "answers-title";
-    title.textContent = "Oplossingen:";
-    answersElement.appendChild(title);
-
-    currentRound.words.forEach(word => {
-        const span = document.createElement("span");
-        span.className = "answer " + (solvedGlobal.has(word.key) ? "solved" : "missed");
-        span.textContent = word.label;
-        answersElement.appendChild(span);
-    });
-}
-
-// -----------------------------
-// Ronde & timer
-// -----------------------------
 function startTimer() {
-    if (timer) clearInterval(timer);
-    time = 40;
-    timerElement.textContent = time;
+    clearInterval(timer);
+    time = currentRound.time || 40;
+    timerEl.textContent = time;
 
     timer = setInterval(() => {
         time--;
-        timerElement.textContent = time;
+        timerEl.textContent = time;
         if (time <= 0) {
             clearInterval(timer);
             endRound();
@@ -318,90 +265,174 @@ function startTimer() {
     }, 1000);
 }
 
-function startRound(index) {
-    currentRoundIndex = index;
-    currentRound = rounds[currentRoundIndex];
+function buildTiles() {
+    tiles.innerHTML = "";
+    solutionMap = {};
 
-    updateRoundLabel();
-    buildTiles();
-    resultElement.innerHTML = "";
-    answersElement.innerHTML = "";
+    if (currentRound.type === "multiplechoice") {
+        currentRound.answers.forEach(a => {
+            const t = document.createElement("div");
+            t.className = "tile";
+            t.dataset.choice = a.key;
+            t.textContent = a.label;
+            tiles.appendChild(t);
+        });
+        return;
+    }
+
+    currentRound.words.forEach(w => {
+        solutionMap[w.key] = w;
+        w.hints.forEach(h => {
+            const t = document.createElement("div");
+            t.className = "tile";
+            t.dataset.solution = w.key;
+            t.textContent = h;
+            tiles.appendChild(t);
+        });
+    });
+}
+
+function startRound(i) {
+    currentIndex = i;
+    currentRound = rounds[i];
+    roundLabel.textContent = `${currentRound.name} van ${rounds.length}`;
+    questionLabel.textContent = currentRound.question || "";
+    resultEl.innerHTML = "";
+    answersEl.innerHTML = "";
     input.disabled = false;
     input.value = "";
     input.focus();
+    buildTiles();
     startTimer();
-    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
 }
 
 function endRound() {
     input.disabled = true;
+    answersEl.innerHTML = "";
 
-    const notSolved = currentRound.words.filter(w => !solvedGlobal.has(w.key));
-    const missedCount = notSolved.length;
+    // show correct answers
+    if (currentRound.type === "multiplechoice") {
+        const correct = currentRound.answers.find(a => a.correct);
+        const span = document.createElement("span");
+        span.className = "answer " + (solved.has("MCQ_"+currentIndex) ? "solved" : "missed");
+        span.textContent = correct.label;
 
-    showAnswersForCurrentRound();
+        const head = document.createElement("div");
+        head.id = "answers-title";
+        head.textContent = "Juiste antwoord:";
+        answersEl.appendChild(head);
+        answersEl.appendChild(span);
 
-    // tekst + eventueel knop voor volgende ronde
-    let html =
-        `Tijd is op voor ${currentRound.name}!<br>` +
-        `Niet geraden woorden: <strong>${missedCount}</strong>.<br>` +
-        `Overgebleven flessen: <strong>${bottles}</strong>.`;
+        resultEl.innerHTML =
+            `Ronde afgelopen!<br>Overgebleven flessen: <strong>${bottles}</strong>.<br><br>`;
+    } else {
+        const head = document.createElement("div");
+        head.id = "answers-title";
+        head.textContent = "Oplossingen:";
+        answersEl.appendChild(head);
 
-    if (currentRoundIndex < rounds.length - 1) {
-        html += `<br><br>`;
-        resultElement.innerHTML = html;
+        currentRound.words.forEach(w => {
+            const span = document.createElement("span");
+            span.className =
+                "answer " + (solved.has(w.key) ? "solved" : "missed");
+            span.textContent = w.label;
+            answersEl.appendChild(span);
+        });
 
+        let missed = currentRound.words.filter(w => !solved.has(w.key)).length;
+        resultEl.innerHTML =
+            `Ronde afgelopen!<br>Niet geraden: <strong>${missed}</strong>.<br>Overgebleven flessen: <strong>${bottles}</strong><br><br>`;
+    }
+
+    if (currentIndex < rounds.length - 1) {
         const btn = document.createElement("button");
         btn.id = "next-round-btn";
         btn.textContent = "Volgende ronde";
-        btn.onclick = () => startRound(currentRoundIndex + 1);
-        resultElement.appendChild(btn);
+        btn.onclick = () => startRound(currentIndex + 1);
+        resultEl.appendChild(btn);
     } else {
-        html += `<br><br>Spel afgelopen!`;
-        resultElement.innerHTML = html;
+        resultEl.innerHTML += "Spel afgelopen!";
     }
 }
 
-// -----------------------------
-// Raden
-// -----------------------------
-input.addEventListener("keyup", (e) => {
-    if (e.key === "Enter") {
-        checkGuess();
-    }
+input.addEventListener("keyup", e => {
+    if (e.key === "Enter") checkGuess();
 });
 
-// laten we je scrollen naar midden bij focus (zoals je eerdere versie)
-input.addEventListener("focus", () => {
-    setTimeout(() => {
-        input.scrollIntoView({ block: "center", behavior: "smooth" });
-    }, 300);
-});
-
+// -----------------------------
+// CHECK GUESS
+// -----------------------------
 function checkGuess() {
     if (input.disabled) return;
+    const raw = input.value.trim();
+    const norm = normalize(raw);
 
-    const rawGuess = input.value.trim();
-    const guessKey = normalize(rawGuess);
+    input.value = "";
 
-    const wordObj = currentSolutionMap[guessKey];
-    if (wordObj && !solvedGlobal.has(wordObj.key)) {
-        solvedGlobal.add(wordObj.key);
-        markTilesForKey(wordObj.key);
+    // --- RONDE 3: MEERKEUZE ---
+    if (currentRound.type === "multiplechoice") {
+        let choice = null;
 
-        if (bottles > 0) {
-            bottles--;
+        if (norm === "A" || norm === "A.") choice = "A";
+        else if (norm === "B" || norm === "B.") choice = "B";
+        else if (norm === "C" || norm === "C.") choice = "C";
+        else if (norm === "D" || norm === "D.") choice = "D";
+        else if (norm === "59935" || norm === "59.935") choice = "A";
+
+        // GEEN tweede poging → meteen ronde eindigen
+        clearInterval(timer);
+
+        if (choice === "A") {
+            // goed → fles eraf
+            solved.add("MCQ_"+currentIndex);
+            if (bottles > 0) bottles--;
             updateBottles();
+
+            // highlight correct tile
+            document.querySelectorAll("[data-choice]").forEach(el => {
+                if (el.dataset.choice === "A") el.classList.add("correct");
+            });
+        }
+
+        endRound();
+        return;
+    }
+
+    // --- normale rondes ---
+    let found = null;
+
+    // key match
+    if (solutionMap[norm]) found = solutionMap[norm];
+
+    // alias match
+    if (!found) {
+        for (const w of currentRound.words) {
+            for (const a of (w.aliases || [])) {
+                if (normalize(a) === norm) found = w;
+            }
         }
     }
 
-    input.value = "";
-    input.focus();
+    if (found && !solved.has(found.key)) {
+        solved.add(found.key);
+
+        // mark tiles
+        document.querySelectorAll(`[data-solution="${found.key}"]`)
+            .forEach(t => t.classList.add("correct"));
+
+        // fles eraf
+        if (bottles > 0) bottles--;
+        updateBottles();
+
+        // als alle woorden gevonden → stop direct
+        if (currentRound.words.every(w => solved.has(w.key))) {
+            clearInterval(timer);
+            endRound();
+            return;
+        }
+    }
 }
 
-// -----------------------------
-// Start spel met ronde 1
-// -----------------------------
 updateBottles();
 startRound(0);
 </script>
