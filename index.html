@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <title>De Slimste Emil</title>
 
-<!-- ✅ Belangrijk voor mobiel + geen zoomen -->
+<!-- geen zoomen + goed mobiel gedrag -->
 <meta name="viewport"
       content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 
@@ -12,43 +12,32 @@
     * {
         box-sizing: border-box;
     }
-
     html, body {
         margin: 0;
         padding: 0;
-        height: 100%;
-    }
-
-    body {
         background: #b62318;
         font-family: -apple-system, BlinkMacSystemFont, Arial, sans-serif;
         color: white;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
+    }
+
+    /* alles boven het invoerveld */
+    #page {
+        max-width: 650px;
+        margin: 0 auto;
+        padding: 12px 10px 90px; /* extra onderkant zodat niets onder het inputveld valt */
     }
 
     h1 {
-        margin: 12px 8px 4px;
+        margin: 0 0 6px;
         font-size: 22px;
         text-align: center;
     }
 
     #timer {
         font-size: 26px;
-        margin-bottom: 8px;
+        margin-bottom: 10px;
         font-weight: bold;
-    }
-
-    /* container met puzzel + ruimte eromheen */
-    .content {
-        flex: 1;
-        width: 100%;
-        max-width: 650px;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        padding: 0 10px 10px;
+        text-align: center;
     }
 
     .puzzel-container {
@@ -78,17 +67,25 @@
         font-weight: 600;
     }
 
-    /* invoerveld onderaan, altijd zichtbaar */
+    #result {
+        margin-top: 10px;
+        font-size: 18px;
+        text-align: center;
+    }
+
+    /* invoerveld altijd onderaan vast */
     #input-area {
-        width: 100%;
-        max-width: 650px;
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: #b62318;
         padding: 8px 10px 14px;
         border-top: 1px solid rgba(255,255,255,0.25);
         display: flex;
         gap: 8px;
-        position: sticky;
-        bottom: 0;
-        background: #b62318;
+        max-width: 650px;
+        margin: 0 auto;
     }
 
     #guess {
@@ -96,7 +93,7 @@
         padding: 10px 12px;
         border-radius: 8px;
         border: none;
-        font-size: 16px; /* ✅ 16px om auto-zoom op iOS te voorkomen */
+        font-size: 16px; /* 16px om iOS auto-zoom te voorkomen */
         outline: none;
     }
 
@@ -114,38 +111,22 @@
         transform: scale(0.98);
     }
 
-    #result {
-        margin-top: 8px;
-        font-size: 18px;
-        text-align: center;
-    }
-
-    /* 📱 iets compacter op kleine schermen */
     @media (max-width: 480px) {
-        h1 {
-            font-size: 20px;
-        }
-        .puzzel-container {
-            grid-template-columns: repeat(3, 1fr); /* kan je desnoods 2 maken */
-            gap: 6px;
-        }
+        h1 { font-size: 20px; }
         .tile {
             font-size: 14px;
-            padding: 10px 2px;
             min-height: 40px;
+            padding: 10px 2px;
         }
     }
 </style>
 </head>
 <body>
 
-<h1>De Slimste Emil – Puzzel</h1>
-
-<div class="content">
+<div id="page">
+    <h1>De Slimste Emil – Puzzel</h1>
     <div id="timer">40</div>
-
     <div class="puzzel-container" id="tiles"></div>
-
     <div id="result"></div>
 </div>
 
@@ -155,20 +136,15 @@
 </div>
 
 <script>
-// ------------------------------
 // 1️⃣ JOUW WOORDEN EN HINTS
-// ------------------------------
 const solutions = {
     "KROKET": ["Snackbar", "Gefrituurd", "Ragout", "Hollands"],
     "POOL": ["Koud", "Aardbol", "IJs", "Noord"],
     "GITAAR": ["Snaren", "Rock", "Instrument", "Solo"]
 };
 
-// ------------------------------
-// Tiles maken
-// ------------------------------
+// Tiles vullen
 const container = document.getElementById("tiles");
-
 for (const [solution, hints] of Object.entries(solutions)) {
     hints.forEach(h => {
         const tile = document.createElement("div");
@@ -181,9 +157,7 @@ for (const [solution, hints] of Object.entries(solutions)) {
 
 let solved = new Set();
 
-// ------------------------------
 // Timer
-// ------------------------------
 let time = 40;
 const timerElement = document.getElementById("timer");
 
@@ -197,9 +171,7 @@ const timer = setInterval(() => {
     }
 }, 1000);
 
-// ------------------------------
-// Raadmechanisme
-// ------------------------------
+// Input + scroll trick
 const input = document.getElementById("guess");
 input.focus();
 
@@ -207,6 +179,13 @@ input.addEventListener("keyup", (e) => {
     if (e.key === "Enter") {
         checkGuess();
     }
+});
+
+// 👉 als keyboard opent, scroll naar boven zodat tegels in beeld zijn
+input.addEventListener("focus", () => {
+    setTimeout(() => {
+        window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+    }, 200);
 });
 
 function checkGuess() {
@@ -222,22 +201,16 @@ function checkGuess() {
     input.focus();
 }
 
-// ------------------------------
-// Einde spel
-// ------------------------------
 function endGame() {
     input.disabled = true;
-
     const total = Object.keys(solutions).length;
     const notSolved = total - solved.size;
 
     document.getElementById("result").innerHTML =
         `Tijd is op!<br>Je mist: <strong>${notSolved}</strong> woord(en).`;
-
     clearInterval(timer);
 }
 </script>
-
 </body>
 </html>
 
