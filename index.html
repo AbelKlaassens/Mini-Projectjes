@@ -4,27 +4,42 @@
 <meta charset="UTF-8">
 <title>De Slimste Emil</title>
 
-<!-- geen zoomen + goed mobiel gedrag -->
+<!-- Mobiel + niet zoomen -->
 <meta name="viewport"
       content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 
 <style>
-    * {
-        box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
+
     html, body {
         margin: 0;
         padding: 0;
+        height: 100%;
+        overflow: hidden; /* geen rare scroll van de body */
+    }
+
+    body {
         background: #b62318;
         font-family: -apple-system, BlinkMacSystemFont, Arial, sans-serif;
         color: white;
+        display: flex;
+        justify-content: center; /* center horizontaal */
     }
 
-    /* alles boven het invoerveld */
-    #page {
+    /* De hele app */
+    .app {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        width: 100%;
         max-width: 650px;
-        margin: 0 auto;
-        padding: 12px 10px 90px; /* extra onderkant zodat niets onder het inputveld valt */
+    }
+
+    /* Bovenste deel: puzzel + timer */
+    #page {
+        flex: 1;
+        overflow-y: auto;              /* alleen hier mag gescrold worden */
+        padding: 12px 10px 8px;
     }
 
     h1 {
@@ -45,7 +60,8 @@
         display: grid;
         grid-template-columns: repeat(3, 1fr);
         gap: 8px;
-        margin: 10px auto;
+        margin-top: 10px;
+        margin-bottom: 8px;
     }
 
     .tile {
@@ -55,7 +71,7 @@
         font-size: 16px;
         text-align: center;
         transition: 0.3s;
-        min-height: 46px;
+        min-height: 40px;
         display: flex;
         justify-content: center;
         align-items: center;
@@ -68,24 +84,19 @@
     }
 
     #result {
-        margin-top: 10px;
+        margin-top: 4px;
         font-size: 18px;
         text-align: center;
     }
 
-    /* invoerveld altijd onderaan vast */
+    /* Onderste balk: input + knop */
     #input-area {
-        position: fixed;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: #b62318;
+        flex-shrink: 0; /* mag niet kleiner worden */
         padding: 8px 10px 14px;
         border-top: 1px solid rgba(255,255,255,0.25);
         display: flex;
         gap: 8px;
-        max-width: 650px;
-        margin: 0 auto;
+        background: #b62318;
     }
 
     #guess {
@@ -93,7 +104,7 @@
         padding: 10px 12px;
         border-radius: 8px;
         border: none;
-        font-size: 16px; /* 16px om iOS auto-zoom te voorkomen */
+        font-size: 16px;   /* voorkomt iOS-zoom */
         outline: none;
     }
 
@@ -107,32 +118,32 @@
         font-weight: 600;
     }
 
-    button:active {
-        transform: scale(0.98);
-    }
+    button:active { transform: scale(0.98); }
 
     @media (max-width: 480px) {
         h1 { font-size: 20px; }
         .tile {
             font-size: 14px;
-            min-height: 40px;
             padding: 10px 2px;
+            min-height: 36px;
         }
     }
 </style>
 </head>
 <body>
 
-<div id="page">
-    <h1>De Slimste Emil – Puzzel</h1>
-    <div id="timer">40</div>
-    <div class="puzzel-container" id="tiles"></div>
-    <div id="result"></div>
-</div>
+<div class="app">
+    <div id="page">
+        <h1>De Slimste Emil – Puzzel</h1>
+        <div id="timer">40</div>
+        <div class="puzzel-container" id="tiles"></div>
+        <div id="result"></div>
+    </div>
 
-<div id="input-area">
-    <input id="guess" placeholder="Typ jouw antwoord..." autocomplete="off">
-    <button onclick="checkGuess()">Gok!</button>
+    <div id="input-area">
+        <input id="guess" placeholder="Typ jouw antwoord..." autocomplete="off">
+        <button onclick="checkGuess()">Gok!</button>
+    </div>
 </div>
 
 <script>
@@ -143,7 +154,7 @@ const solutions = {
     "GITAAR": ["Snaren", "Rock", "Instrument", "Solo"]
 };
 
-// Tiles vullen
+// Tiles maken
 const container = document.getElementById("tiles");
 for (const [solution, hints] of Object.entries(solutions)) {
     hints.forEach(h => {
@@ -171,7 +182,7 @@ const timer = setInterval(() => {
     }
 }, 1000);
 
-// Input + scroll trick
+// Input
 const input = document.getElementById("guess");
 input.focus();
 
@@ -179,13 +190,6 @@ input.addEventListener("keyup", (e) => {
     if (e.key === "Enter") {
         checkGuess();
     }
-});
-
-// 👉 als keyboard opent, scroll naar boven zodat tegels in beeld zijn
-input.addEventListener("focus", () => {
-    setTimeout(() => {
-        window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
-    }, 200);
 });
 
 function checkGuess() {
