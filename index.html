@@ -19,17 +19,22 @@
         color: white;
     }
 
-    /* Bovenste deel: titel, timer, puzzel */
     #top {
         max-width: 650px;
         margin: 0 auto;
-        padding: 12px 10px 80px; /* extra ruimte onderin zodat boven het inputveld nog wat rood is */
+        padding: 12px 10px 80px;
     }
 
     h1 {
-        margin: 0 0 6px;
+        margin: 0 0 4px;
         font-size: 22px;
         text-align: center;
+    }
+
+    #round-label {
+        font-size: 16px;
+        text-align: center;
+        margin-bottom: 4px;
     }
 
     #timer {
@@ -78,6 +83,35 @@
         text-align: center;
     }
 
+    #answers {
+        margin-top: 10px;
+        text-align: center;
+    }
+
+    #answers-title {
+        font-size: 16px;
+        margin-bottom: 4px;
+    }
+
+    .answer {
+        display: inline-block;
+        margin: 3px 6px;
+        padding: 4px 8px;
+        border-radius: 6px;
+        font-size: 15px;
+    }
+
+    .answer.solved {
+        background: #63c76a;
+        color: #000;
+        font-weight: 600;
+    }
+
+    .answer.missed {
+        background: rgba(0,0,0,0.35);
+        color: #fff;
+    }
+
     /* Onderste deel: input + knop */
     #input-wrapper {
         background: #b62318;
@@ -109,9 +143,14 @@
         color: #b62318;
         font-size: 16px;
         font-weight: 600;
+        cursor: pointer;
     }
 
     button:active { transform: scale(0.98); }
+
+    #next-round-btn {
+        margin-top: 10px;
+    }
 
     @media (max-width: 480px) {
         h1 { font-size: 20px; }
@@ -127,10 +166,12 @@
 
 <div id="top">
     <h1>De Slimste Emil – Puzzel</h1>
+    <div id="round-label">Ronde 1 van 2</div>
     <div id="timer">40</div>
     <div id="bottles">Flessen: 10</div>
     <div class="puzzel-container" id="tiles"></div>
     <div id="result"></div>
+    <div id="answers"></div>
 </div>
 
 <div id="input-wrapper">
@@ -141,68 +182,196 @@
 </div>
 
 <script>
-// 1️⃣ JOUW WOORDEN EN HINTS
-// We normaliseren straks de input, zodat 'HBOers' en 'HBO’ers' allebei werken.
-const solutions = {
-    "ELLA": ["Mascotte", "Roel", "Yves", "Dizkartes"],
-    "BILAL": ["Marrakech", "Geit", "Moslim", "Fully Gucci"],
-    "ALFAVILLA": ["Albanie", "Wit", "Bad", "Neighbours"],
-    "HBOERS": ["Ties", "Tim", "Derek", "Joost"]
-};
+// -----------------------------
+// DATA: 2 rondes, 3 woorden elk
+// -----------------------------
+const rounds = [
+    {
+        name: "Ronde 1",
+        words: [
+            {
+                key: "ELLA",
+                label: "Ella",
+                hints: ["Mascotte", "Roel", "Yves", "dizkartes"]
+            },
+            {
+                key: "BILAL",
+                label: "Bilal",
+                hints: ["Marrakech", "geit", "Fully Gucci", "Moslim"]
+            },
+            {
+                key: "ALFAVILLA",
+                label: "Alfa villa",
+                hints: ["Albanie", "Wit", "bad", "buren"]
+            }
+        ]
+    },
+    {
+        name: "Ronde 2",
+        words: [
+            {
+                key: "HBOERS",
+                label: "HBO\u2019ers",
+                hints: ["Ties", "Tim", "Derek", "Joost"]
+            },
+            {
+                key: "VO",
+                label: "Vo",
+                hints: ["1815", "27", "Proost", "olifant"]
+            },
+            {
+                key: "NOORDERPLANTSOEN",
+                label: "Noorderplantsoen",
+                hints: ["Gras", "Park", "Melkinrichting", "Zondag"]
+            }
+        ]
+    }
+];
 
-// kleine helper: normaliseer tekst (hoofdletters, spaties weg, apostrof weg)
+// normaliseer input: hoofdletters, spaties weg, apostrof-varianten weg
 function normalize(str) {
     return str
         .toUpperCase()
-        .replace(/\s+/g, "")     // spaties weg
-        .replace(/['’]/g, "");   // apostrof varianten weg
+        .replace(/\s+/g, "")
+        .replace(/['’]/g, "");
 }
 
-// Tiles maken
-const container = document.getElementById("tiles");
-for (const [solutionKey, hints] of Object.entries(solutions)) {
-    hints.forEach(h => {
-        const tile = document.createElement("div");
-        tile.className = "tile";
-        tile.dataset.solution = solutionKey;
-        tile.innerText = h;
-        container.appendChild(tile);
-    });
-}
-
-let solved = new Set();
-
-// Flessen
-let bottles = 10;
+const tilesContainer = document.getElementById("tiles");
+const timerElement = document.getElementById("timer");
 const bottlesElement = document.getElementById("bottles");
+const resultElement = document.getElementById("result");
+const answersElement = document.getElementById("answers");
+const roundLabelElement = document.getElementById("round-label");
+const input = document.getElementById("guess");
+
+let currentRoundIndex = 0;
+let currentRound = null;
+let currentSolutionMap = {};   // key -> word object (label, hints)
+let solvedGlobal = new Set();  // alle goed geraden woorden over beide rondes
+let bottles = 10;
+let time = 40;
+let timer = null;
+
+// -----------------------------
+// UI helpers
+// -----------------------------
 function updateBottles() {
     bottlesElement.textContent = `Flessen: ${bottles}`;
 }
-updateBottles();
 
-// Timer
-let time = 40;
-const timerElement = document.getElementById("timer");
-const timer = setInterval(() => {
-    time--;
+function updateRoundLabel() {
+    roundLabelElement.textContent = `${currentRound.name} van ${rounds.length}`;
+}
+
+function buildTiles() {
+    tilesContainer.innerHTML = "";
+    currentSolutionMap = {};
+
+    currentRound.words.forEach(word => {
+        currentSolutionMap[word.key] = word;
+        word.hints.forEach(h => {
+            const tile = document.createElement("div");
+            tile.className = "tile";
+            tile.dataset.solution = word.key;
+            tile.innerText = h;
+            tilesContainer.appendChild(tile);
+        });
+    });
+}
+
+function markTilesForKey(key) {
+    document
+        .querySelectorAll(`[data-solution='${key}']`)
+        .forEach(el => el.classList.add("correct"));
+}
+
+function showAnswersForCurrentRound() {
+    answersElement.innerHTML = "";
+    const title = document.createElement("div");
+    title.id = "answers-title";
+    title.textContent = "Oplossingen:";
+    answersElement.appendChild(title);
+
+    currentRound.words.forEach(word => {
+        const span = document.createElement("span");
+        span.className = "answer " + (solvedGlobal.has(word.key) ? "solved" : "missed");
+        span.textContent = word.label;
+        answersElement.appendChild(span);
+    });
+}
+
+// -----------------------------
+// Ronde & timer
+// -----------------------------
+function startTimer() {
+    if (timer) clearInterval(timer);
+    time = 40;
     timerElement.textContent = time;
-    if (time <= 0) {
-        clearInterval(timer);
-        endGame();
+
+    timer = setInterval(() => {
+        time--;
+        timerElement.textContent = time;
+        if (time <= 0) {
+            clearInterval(timer);
+            endRound();
+        }
+    }, 1000);
+}
+
+function startRound(index) {
+    currentRoundIndex = index;
+    currentRound = rounds[currentRoundIndex];
+
+    updateRoundLabel();
+    buildTiles();
+    resultElement.innerHTML = "";
+    answersElement.innerHTML = "";
+    input.disabled = false;
+    input.value = "";
+    input.focus();
+    startTimer();
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+}
+
+function endRound() {
+    input.disabled = true;
+
+    const notSolved = currentRound.words.filter(w => !solvedGlobal.has(w.key));
+    const missedCount = notSolved.length;
+
+    showAnswersForCurrentRound();
+
+    // tekst + eventueel knop voor volgende ronde
+    let html =
+        `Tijd is op voor ${currentRound.name}!<br>` +
+        `Niet geraden woorden: <strong>${missedCount}</strong>.<br>` +
+        `Overgebleven flessen: <strong>${bottles}</strong>.`;
+
+    if (currentRoundIndex < rounds.length - 1) {
+        html += `<br><br>`;
+        resultElement.innerHTML = html;
+
+        const btn = document.createElement("button");
+        btn.id = "next-round-btn";
+        btn.textContent = "Volgende ronde";
+        btn.onclick = () => startRound(currentRoundIndex + 1);
+        resultElement.appendChild(btn);
+    } else {
+        html += `<br><br>Spel afgelopen!`;
+        resultElement.innerHTML = html;
     }
-}, 1000);
+}
 
-// Input
-const input = document.getElementById("guess");
-input.focus();
-
+// -----------------------------
+// Raden
+// -----------------------------
 input.addEventListener("keyup", (e) => {
     if (e.key === "Enter") {
         checkGuess();
     }
 });
 
-// 👉 bij focus scrollen we het invoerveld in beeld (boven toetsenbord)
+// laten we je scrollen naar midden bij focus (zoals je eerdere versie)
 input.addEventListener("focus", () => {
     setTimeout(() => {
         input.scrollIntoView({ block: "center", behavior: "smooth" });
@@ -210,17 +379,16 @@ input.addEventListener("focus", () => {
 });
 
 function checkGuess() {
+    if (input.disabled) return;
+
     const rawGuess = input.value.trim();
-    const guess = normalize(rawGuess);
+    const guessKey = normalize(rawGuess);
 
-    if (solutions[guess] && !solved.has(guess)) {
-        solved.add(guess);
+    const wordObj = currentSolutionMap[guessKey];
+    if (wordObj && !solvedGlobal.has(wordObj.key)) {
+        solvedGlobal.add(wordObj.key);
+        markTilesForKey(wordObj.key);
 
-        // tegels groen maken
-        document.querySelectorAll(`[data-solution='${guess}']`)
-            .forEach(el => el.classList.add("correct"));
-
-        // fles eraf (minimaal 0)
         if (bottles > 0) {
             bottles--;
             updateBottles();
@@ -231,18 +399,15 @@ function checkGuess() {
     input.focus();
 }
 
-function endGame() {
-    input.disabled = true;
-    const total = Object.keys(solutions).length;
-    const notSolved = total - solved.size;
-    document.getElementById("result").innerHTML =
-        `Tijd is op!<br>Je mist: <strong>${notSolved}</strong> woord(en).<br>` +
-        `Overgebleven flessen: <strong>${bottles}</strong>.`;
-    clearInterval(timer);
-}
+// -----------------------------
+// Start spel met ronde 1
+// -----------------------------
+updateBottles();
+startRound(0);
 </script>
 
 </body>
 </html>
+
 
 
