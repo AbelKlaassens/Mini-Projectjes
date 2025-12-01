@@ -3,79 +3,170 @@
 <head>
 <meta charset="UTF-8">
 <title>De Slimste Emil</title>
+
+<!-- ✅ Belangrijk voor mobiel + geen zoomen -->
+<meta name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+
 <style>
+    * {
+        box-sizing: border-box;
+    }
+
+    html, body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+    }
+
     body {
         background: #b62318;
-        font-family: Arial, sans-serif;
+        font-family: -apple-system, BlinkMacSystemFont, Arial, sans-serif;
         color: white;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    h1 {
+        margin: 12px 8px 4px;
+        font-size: 22px;
         text-align: center;
-    }
-    h1 { margin-top: 20px; }
-
-    .puzzel-container {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 12px;
-        max-width: 600px;
-        margin: 40px auto;
-    }
-    .tile {
-        background: rgba(255,255,255,0.15);
-        padding: 15px;
-        border-radius: 10px;
-        font-size: 18px;
-        transition: 0.3s;
-    }
-    .tile.correct {
-        background: #63c76a;
-        color: #000;
-        font-weight: bold;
-    }
-
-    #input-area {
-        margin-top: 20px;
     }
 
     #timer {
         font-size: 26px;
-        margin-top: 20px;
+        margin-bottom: 8px;
         font-weight: bold;
     }
 
+    /* container met puzzel + ruimte eromheen */
+    .content {
+        flex: 1;
+        width: 100%;
+        max-width: 650px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 0 10px 10px;
+    }
+
+    .puzzel-container {
+        width: 100%;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+        margin: 10px auto;
+    }
+
+    .tile {
+        background: rgba(255,255,255,0.15);
+        padding: 12px 4px;
+        border-radius: 10px;
+        font-size: 16px;
+        text-align: center;
+        transition: 0.3s;
+        min-height: 46px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .tile.correct {
+        background: #63c76a;
+        color: #000;
+        font-weight: 600;
+    }
+
+    /* invoerveld onderaan, altijd zichtbaar */
+    #input-area {
+        width: 100%;
+        max-width: 650px;
+        padding: 8px 10px 14px;
+        border-top: 1px solid rgba(255,255,255,0.25);
+        display: flex;
+        gap: 8px;
+        position: sticky;
+        bottom: 0;
+        background: #b62318;
+    }
+
+    #guess {
+        flex: 1;
+        padding: 10px 12px;
+        border-radius: 8px;
+        border: none;
+        font-size: 16px; /* ✅ 16px om auto-zoom op iOS te voorkomen */
+        outline: none;
+    }
+
+    button {
+        padding: 10px 14px;
+        border-radius: 8px;
+        border: none;
+        background: #ffffff;
+        color: #b62318;
+        font-size: 16px;
+        font-weight: 600;
+    }
+
+    button:active {
+        transform: scale(0.98);
+    }
+
     #result {
-        font-size: 22px;
-        margin-top: 25px;
+        margin-top: 8px;
+        font-size: 18px;
+        text-align: center;
+    }
+
+    /* 📱 iets compacter op kleine schermen */
+    @media (max-width: 480px) {
+        h1 {
+            font-size: 20px;
+        }
+        .puzzel-container {
+            grid-template-columns: repeat(3, 1fr); /* kan je desnoods 2 maken */
+            gap: 6px;
+        }
+        .tile {
+            font-size: 14px;
+            padding: 10px 2px;
+            min-height: 40px;
+        }
     }
 </style>
 </head>
 <body>
 
 <h1>De Slimste Emil – Puzzel</h1>
-<div id="timer">40</div>
 
-<div class="puzzel-container" id="tiles"></div>
+<div class="content">
+    <div id="timer">40</div>
+
+    <div class="puzzel-container" id="tiles"></div>
+
+    <div id="result"></div>
+</div>
 
 <div id="input-area">
-    <input id="guess" placeholder="Typ jouw antwoord..." autofocus>
+    <input id="guess" placeholder="Typ jouw antwoord..." autocomplete="off">
     <button onclick="checkGuess()">Gok!</button>
 </div>
 
-<div id="result"></div>
-
 <script>
-// --------------------------------------
-// 1️⃣ DEZE WOORDEN ZIJN VAN JOU – PAS AAN!
-// --------------------------------------
-
+// ------------------------------
+// 1️⃣ JOUW WOORDEN EN HINTS
+// ------------------------------
 const solutions = {
     "KROKET": ["Snackbar", "Gefrituurd", "Ragout", "Hollands"],
     "POOL": ["Koud", "Aardbol", "IJs", "Noord"],
     "GITAAR": ["Snaren", "Rock", "Instrument", "Solo"]
 };
 
-// --------------------------------------
-// Maak tiles
-// --------------------------------------
+// ------------------------------
+// Tiles maken
+// ------------------------------
 const container = document.getElementById("tiles");
 
 for (const [solution, hints] of Object.entries(solutions)) {
@@ -90,9 +181,9 @@ for (const [solution, hints] of Object.entries(solutions)) {
 
 let solved = new Set();
 
-// --------------------------------------
+// ------------------------------
 // Timer
-// --------------------------------------
+// ------------------------------
 let time = 40;
 const timerElement = document.getElementById("timer");
 
@@ -106,16 +197,23 @@ const timer = setInterval(() => {
     }
 }, 1000);
 
-// --------------------------------------
+// ------------------------------
 // Raadmechanisme
-// --------------------------------------
+// ------------------------------
+const input = document.getElementById("guess");
+input.focus();
+
+input.addEventListener("keyup", (e) => {
+    if (e.key === "Enter") {
+        checkGuess();
+    }
+});
+
 function checkGuess() {
-    const input = document.getElementById("guess");
     const guess = input.value.trim().toUpperCase();
 
     if (solutions[guess] && !solved.has(guess)) {
         solved.add(guess);
-
         document.querySelectorAll(`[data-solution='${guess}']`)
             .forEach(el => el.classList.add("correct"));
     }
@@ -124,14 +222,14 @@ function checkGuess() {
     input.focus();
 }
 
-// --------------------------------------
+// ------------------------------
 // Einde spel
-// --------------------------------------
+// ------------------------------
 function endGame() {
-    document.getElementById("guess").disabled = true;
+    input.disabled = true;
 
-    let total = Object.keys(solutions).length;
-    let notSolved = total - solved.size;
+    const total = Object.keys(solutions).length;
+    const notSolved = total - solved.size;
 
     document.getElementById("result").innerHTML =
         `Tijd is op!<br>Je mist: <strong>${notSolved}</strong> woord(en).`;
@@ -142,3 +240,4 @@ function endGame() {
 
 </body>
 </html>
+
